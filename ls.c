@@ -1,4 +1,3 @@
-
 #include <ctype.h>
 #include <dirent.h>
 #include <error.h>
@@ -285,7 +284,7 @@ void ls(char *name) {
     }
     if (flag_r) {
         for (int k = file_num - 1; k >= 0; k--) {
-            // 本身就是字典正序，只需要倒着输出就能实现-r~~
+            // 本身就是字典正序，只需要倒着输出就能实现-r
             if (flag_a == 0 &&
                 pathname_buffer_list[k][0] == '.') { // 没有'a'时省略'.'  '..'
                 continue;
@@ -468,7 +467,6 @@ void ls_i(char *pathname_file_list, char *name) {
     lstat(pathname, &STA); // 通过lstat获取路径pathname的状态储存到STA当中
     printf("%7ld", (long)STA.st_ino);
 }
-
 // 文件大小 -s
 void ls_s(char *pathname_file_list, char *name) {
     char pathname[1024];
@@ -498,7 +496,6 @@ void ls_s(char *pathname_file_list, char *name) {
 //         }
 //     }
 // }
-
 // 比较函数，用于比较两个文件的修改时间
 int compare_mtime(const void *a, const void *b) {
     char *file1 = *(char **)a;
