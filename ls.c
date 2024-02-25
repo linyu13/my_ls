@@ -104,6 +104,7 @@ void ls_s(char *pathname_file_list,
           char *name); // 在每个文件名后输出该文件的大小
 void ls_t(char **pathname_buffer_list, int len);
 // 按修改时间进行排序，先显示最后编辑的文件
+void ls_r(char **pathname_buffer_list, int len);
 void MODE(int mode, char *str); // 文件权限
 char *UID(uid_t uid);           // 获取用户名
 char *GID(gid_t gid);           // 获取用户组名
@@ -283,71 +284,56 @@ void ls(char *name) {
         ls_t(pathname_buffer_list, pathname_buffer_list_num);
     }
     if (flag_r) {
-        for (int k = file_num - 1; k >= 0; k--) {
-            // 本身就是字典正序，只需要倒着输出就能实现-r
-            if (flag_a == 0 &&
-                pathname_buffer_list[k][0] == '.') { // 没有'a'时省略'.'  '..'
-                continue;
-            }
-            if (flag_i) {
-                ls_i(pathname_buffer_list[k], name);
-            }
-            if (flag_s) {
-                ls_s(pathname_buffer_list[k], name);
-            }
-            if (flag_l) {
-                ls_l(pathname_buffer_list[k], name);
-            }
-            printcolor(pathname_buffer_list[k], name);
-        }
-    } else {
-        for (int k = 0; k < file_num; k++) { // 没有r的情况
-            if (flag_a == 0 && pathname_buffer_list[k][0] == '.') {
-                continue;
-            }
-            if (flag_i) {
-                ls_i(pathname_buffer_list[k], name);
-            }
-            if (flag_s) {
-                ls_s(pathname_buffer_list[k], name);
-            }
-            if (flag_l) {
-                ls_l(pathname_buffer_list[k], name);
-            }
-            printcolor(pathname_buffer_list[k], name);
-        }
-
-        rewinddir(dir); // 在对该目录完成tralis任务后将目录流返回到目录开始
-
-        if (flag_R) {
-            while ((dir_ptr = readdir(dir)) != NULL) {
-                if (flag_a == 0 && dir_ptr->d_name[0] == '.') {
-                    continue;
-                }
-                if (dir_ptr->d_type == DT_DIR && // 是否为目录
-                    strcmp(dir_ptr->d_name, ".") != 0 &&
-                    strcmp(dir_ptr->d_name, "..") !=
-                        0) { // 是否为当前目录或者上级目录
-                    char path_R[1024];
-                    char repath[1024];
-                    sprintf(path_R, "%s/%s", name, dir_ptr->d_name);
-                    realpath(
-                        path_R,
-                        repath); // 使用了 realpath
-                                 // 函数来获取指定路径的绝对路径，并将结果保存在
-                                 // repath 字符数组中
-                    printf("\n%s:\n", repath); // 打印绝对路径
-                    ls(path_R);
-                }
-            }
-        }
-        closedir(dir); // 关闭目录流
+        ls_r(pathname_buffer_list, pathname_buffer_list_num);
     }
+    for (int k = 0; k < file_num; k++) {
+        if (flag_a == 0 && pathname_buffer_list[k][0] == '.') {
+            continue;
+        }
+        if (flag_i) {
+            ls_i(pathname_buffer_list[k], name);
+        }
+        if (flag_s) {
+            ls_s(pathname_buffer_list[k], name);
+        }
+        if (flag_l) {
+            ls_l(pathname_buffer_list[k], name);
+        }
+        printcolor(pathname_buffer_list[k], name);
+    }
+
+    rewinddir(dir); // 在对该目录完成tralis任务后将目录流返回到目录开始
+
+    if (flag_R) {
+        while ((dir_ptr = readdir(dir)) != NULL) {
+            if (flag_a == 0 && dir_ptr->d_name[0] == '.') {
+                continue;
+            }
+            if (dir_ptr->d_type == DT_DIR && // 是否为目录
+                strcmp(dir_ptr->d_name, ".") != 0 &&
+                strcmp(dir_ptr->d_name, "..") !=
+                    0) { // 是否为当前目录或者上级目录
+                char path_R[1024];
+                char repath[1024];
+                sprintf(path_R, "%s/%s", name, dir_ptr->d_name);
+                realpath(
+                    path_R,
+                    repath); // 使用了 realpath
+                             // 函数来获取指定路径的绝对路径，并将结果保存在
+                             // repath 字符数组中
+                printf("\n%s:\n", repath); // 打印绝对路径
+                ls(path_R);
+            }
+        }
+    }
+    closedir(dir); // 关闭目录流
+
     for (int j = 0; j < pathname_buffer_list_num; j++) {
         free(pathname_buffer_list[j]);
     }
     free(pathname_buffer_list); // 释放内存
 }
+
 void ls_l(char *pathname_file_list, char *name) {
 
     struct stat path;
@@ -360,11 +346,12 @@ void ls_l(char *pathname_file_list, char *name) {
     MODE(path.st_mode, mode);       // 获取权限可视化的字符串
     printf(" %5ld", path.st_nlink); // 文件硬链接数目
     // printf(" %5s", UID(path.st_uid)); // 用户名
-    // printf(" %5s", GID(path.st_gid)); // 组名为什么这里调用会导致卡顿(符号链接没有uid和gid)
+    // printf(" %5s", GID(path.st_gid)); // 组名
+    // 组名为什么这里调用会导致卡顿(符号链接没有uid和gid)
     printf(" %5s", pw_ptr->pw_name); // 用户名
     printf(" %5s", pw_ptr->pw_name); // 组名
-    printf(" %10ld", path.st_size);   // 文件大小
-    char lasttime[64];                // 时间
+    printf(" %10ld", path.st_size);  // 文件大小
+    char lasttime[64];               // 时间
     strcpy(lasttime, ctime(&(path.st_mtime)));
     lasttime[strlen(lasttime) - 1] = '\0';
     printf(" %5s  ", lasttime);
@@ -518,4 +505,16 @@ int compare_mtime(const void *a, const void *b) {
 void ls_t(char **pathname_buffer_list, int len) {
     // 使用 qsort 函数对文件列表按修改时间进行排序
     qsort(pathname_buffer_list, len, sizeof(char *), compare_mtime);
+}
+
+// 比较函数，用于比较两个目录项的名称
+int compare_names(const void *a, const void *b) {
+    const char *name1 = *(const char **)a;
+    const char *name2 = *(const char **)b;
+    return strcmp(name2, name1); // 以相反的顺序比较名称
+}
+
+void ls_r(char **pathname_buffer_list, int len) {
+    // 使用qsort函数对目录项数组进行排序
+    qsort(pathname_buffer_list, len, sizeof(char *), compare_names);
 }
