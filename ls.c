@@ -332,9 +332,11 @@ void ls(char *name) {
                     char path_R[1024];
                     char repath[1024];
                     sprintf(path_R, "%s/%s", name, dir_ptr->d_name);
-                    realpath(path_R, repath); // 使用了 realpath
-                                              // 函数来获取指定路径的绝对路径，并将结果保存在
-                                              // repath 字符数组中
+                    realpath(
+                        path_R,
+                        repath); // 使用了 realpath
+                                 // 函数来获取指定路径的绝对路径，并将结果保存在
+                                 // repath 字符数组中
                     printf("\n%s:\n", repath); // 打印绝对路径
                     ls(path_R);
                 }
@@ -356,10 +358,12 @@ void ls_l(char *pathname_file_list, char *name) {
     char mode[11]; // 权限
     lstat(pathname, &path);
     pw_ptr = getpwuid(path.st_uid);
-    MODE(path.st_mode, mode);         // 获取权限可视化的字符串
-    printf(" %5ld", path.st_nlink);   // 文件硬链接数目
-    printf(" %5s", UID(path.st_uid)); // 用户名
-    printf(" %5s", GID(path.st_gid)); // 组名
+    MODE(path.st_mode, mode);       // 获取权限可视化的字符串
+    printf(" %5ld", path.st_nlink); // 文件硬链接数目
+    // printf(" %5s", UID(path.st_uid)); // 用户名
+    // printf(" %5s", GID(path.st_gid)); // 组名为什么这里调用会导致卡顿(符号链接没有uid和gid)
+    printf(" %5s", pw_ptr->pw_name); // 用户名
+    printf(" %5s", pw_ptr->pw_name); // 组名
     printf(" %10ld", path.st_size);   // 文件大小
     char lasttime[64];                // 时间
     strcpy(lasttime, ctime(&(path.st_mtime)));
