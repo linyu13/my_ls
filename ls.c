@@ -296,7 +296,6 @@ void printcolor(char *pathname_file_list, const char *name) {
         cnt++;
         if ((cnt % 5) == 0) {
             printf("\n");
-            cnt = 0;
         }
     }
 }
