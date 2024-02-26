@@ -94,7 +94,7 @@ m：表示转义序列的结束，即设置结束。
 */
 int flag_a = 0, flag_l = 0, flag_R = 0, flag_t = 0, flag_r = 0, flag_i = 0,
     flag_s = 0;
-
+int cnt = 0;
 #define BLUE 34
 #define GREEN 32
 #define WHITE 37
@@ -112,8 +112,55 @@ void ls_l(char *pathname_file_list,
           char *name); // 列出文件的详细信息（包括文件属性和权限等）
 void ls(char *name);
 void judge_file(char *name); // 判断文件类型
+void ls_l_file(char *name) {
+    struct stat path;
+    struct passwd *pw_ptr;
+    char pathname[1024];
+    sprintf(pathname, "%s", name);
+    char mode[11]; // 权限
+    lstat(pathname, &path);
+    pw_ptr = getpwuid(path.st_uid);
+    MODE(path.st_mode, mode);      // 获取权限可视化的字符串
+    printf("%5ld", path.st_nlink); // 文件硬链接数目
+    // printf(" %5s", UID(path.st_uid)); // 用户名
+    // printf(" %5s", GID(path.st_gid)); // 组名
+    // 组名为什么这里调用会导致卡顿(符号链接没有uid和gid)
+    printf(" %5s", pw_ptr->pw_name); // 用户名
+    printf(" %5s", pw_ptr->pw_name); // 组名
+    printf(" %7ld", path.st_size);   // 文件大小
+    char lasttime[64];               // 时间
+    strcpy(lasttime, ctime(&(path.st_mtime)));
+    lasttime[strlen(lasttime) - 1] = '\0';
+    printf(" %5s ", lasttime);
+}
+
+void ls_i_file(char *name) {
+    struct stat STA;
+    char pathname[1024];
+    sprintf(pathname, "%s", name);
+    lstat(pathname, &STA); // 通过lstat获取路径pathname的状态储存到STA当中
+    printf("%7ld", (long)STA.st_ino);
+}
+
+void ls_s_file(char *name) {
+    char pathname[1024];
+    sprintf(pathname, "%s", name);
+    struct stat STA;
+    lstat(pathname, &STA); // 通过lstat获取路径pathname的状态储存到STA当中
+    printf("%5ld ", (long)STA.st_blocks);
+}
 void file_list(char *name) {
-    printf("%s\n", name);
+    if (flag_i) {
+        ls_i_file(name);
+    }
+    if (flag_s) {
+        ls_s_file(name);
+    }
+    if (flag_l) {
+        ls_l_file(name);
+    }
+
+    printf(" %s", name);
 } // 在最开始进行判断时，倘若是文件则直接输出文件名
 int main(int argc, char **argv) {
     int opt, i = 1;
@@ -206,24 +253,51 @@ void printcolor(char *pathname_file_list, const char *name) {
         perror(path_color);
         exit(EXIT_FAILURE);
     }
-    switch (pr_color.st_mode & S_IFMT) {
-    case S_IFREG: // 常规文件
-        if (pr_color.st_mode & S_IXUSR) {
-            printf("\033[01;%dm%s\033[0m\n", BLUE,
-                   pathname_file_list); // 可执行文件，颜色为蓝色
-        } else {
+    if (flag_l) {
+        switch (pr_color.st_mode & S_IFMT) {
+        case S_IFREG: // 常规文件
+            if (pr_color.st_mode & S_IXUSR) {
+                printf("\033[01;%dm%s\033[0m\n", BLUE,
+                       pathname_file_list); // 可执行文件，颜色为蓝色
+            } else {
+                printf("\033[01;%dm%s\033[0m\n", WHITE,
+                       pathname_file_list); // 普通文件，颜色为白色
+            }
+            break;
+        case S_IFDIR: // 目录
+            printf("\033[01;%dm%s\033[0m\n", GREEN,
+                   pathname_file_list); // 目录，颜色为绿色
+            break;
+        default:
             printf("\033[01;%dm%s\033[0m\n", WHITE,
-                   pathname_file_list); // 普通文件，颜色为白色
+                   pathname_file_list); // 默认为白色
+            break;
         }
-        break;
-    case S_IFDIR: // 目录
-        printf("\033[01;%dm%s\033[0m\n", GREEN,
-               pathname_file_list); // 目录，颜色为绿色
-        break;
-    default:
-        printf("\033[01;%dm%s\033[0m\n", WHITE,
-               pathname_file_list); // 默认为白色
-        break;
+    } else {
+        switch (pr_color.st_mode & S_IFMT) {
+        case S_IFREG: // 常规文件
+            if (pr_color.st_mode & S_IXUSR) {
+                printf(" \033[01;%dm%s\033[0m", BLUE,
+                       pathname_file_list); // 可执行文件，颜色为蓝色
+            } else {
+                printf(" \033[01;%dm%s\033[0m", WHITE,
+                       pathname_file_list); // 普通文件，颜色为白色
+            }
+            break;
+        case S_IFDIR: // 目录
+            printf(" \033[01;%dm%s\033[0m", GREEN,
+                   pathname_file_list); // 目录，颜色为绿色
+            break;
+        default:
+            printf(" \033[01;%dm%s\033[0m", WHITE,
+                   pathname_file_list); // 默认为白色
+            break;
+        }
+        cnt++;
+        if ((cnt % 5) == 0) {
+            printf("\n");
+            cnt = 0;
+        }
     }
 }
 
@@ -343,18 +417,18 @@ void ls_l(char *pathname_file_list, char *name) {
     char mode[11]; // 权限
     lstat(pathname, &path);
     pw_ptr = getpwuid(path.st_uid);
-    MODE(path.st_mode, mode);       // 获取权限可视化的字符串
-    printf(" %5ld", path.st_nlink); // 文件硬链接数目
+    MODE(path.st_mode, mode);      // 获取权限可视化的字符串
+    printf("%5ld", path.st_nlink); // 文件硬链接数目
     // printf(" %5s", UID(path.st_uid)); // 用户名
     // printf(" %5s", GID(path.st_gid)); // 组名
     // 组名为什么这里调用会导致卡顿(符号链接没有uid和gid)
     printf(" %5s", pw_ptr->pw_name); // 用户名
     printf(" %5s", pw_ptr->pw_name); // 组名
-    printf(" %10ld", path.st_size);  // 文件大小
+    printf(" %7ld", path.st_size);   // 文件大小
     char lasttime[64];               // 时间
     strcpy(lasttime, ctime(&(path.st_mtime)));
     lasttime[strlen(lasttime) - 1] = '\0';
-    printf(" %5s  ", lasttime);
+    printf(" %5s ", lasttime);
 }
 
 void MODE(int mode, char *str) {
@@ -460,7 +534,7 @@ void ls_s(char *pathname_file_list, char *name) {
     sprintf(pathname, "%s/%s", name, pathname_file_list);
     struct stat STA;
     lstat(pathname, &STA); // 通过lstat获取路径pathname的状态储存到STA当中
-    printf("%7ld ", (long)STA.st_blocks);
+    printf("%5ld ", (long)STA.st_blocks);
 }
 // void ls_t(char **pathname_buffer_list, int len) {
 //     // 冒泡排序(烂完)
